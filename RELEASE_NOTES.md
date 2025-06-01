@@ -1,5 +1,22 @@
 # Release Notes
 
+## v0.2.7 - Processor Class Implementation
+
+### Bug Fixes
+
+- Fixed "processedDocuments.map is not a function" error
+- Implemented a proper processor class (ContextualDocumentProcessor) following n8n's pattern
+- Added logWrapper utility to match n8n's document loader implementation
+- The processor class properly implements processAll and processItem methods
+
+### Technical Details
+
+The implementation now:
+1. Uses a dedicated ContextualDocumentProcessor class
+2. Wraps the processor with logWrapper (simplified version)
+3. Follows the exact pattern from n8n's N8nJsonLoader and N8nBinaryLoader
+4. Should be fully compatible with all vector stores
+
 ## v0.2.6 - Processor Pattern Implementation
 
 ### Bug Fixes
