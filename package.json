@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-contextual-document-loader",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "n8n community node for document loading with contextual retrieval support",
   "keywords": [
     "n8n-community-node-package",
@@ -28,7 +28,7 @@
     "format": "prettier nodes --write",
     "lint": "eslint nodes --ext .ts",
     "lintfix": "eslint nodes --ext .ts --fix",
-    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.json nodes"
+    "prepublishOnly": "npm run build && npm run lint -- -c .eslintrc.prepublish.json nodes"
   },
   "files": [
     "dist"

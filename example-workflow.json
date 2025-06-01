@@ -11,23 +11,26 @@
     },
     {
       "parameters": {
-        "text": "ACME Corporation Q2 2023 Financial Report\n\nExecutive Summary\nACME Corporation experienced strong growth in Q2 2023, driven by increased demand for our cloud services and enterprise solutions.\n\nRevenue Performance\nThe company's revenue grew by 3% over the previous quarter, reaching $314 million. This growth was primarily attributed to our SaaS offerings, which saw a 15% increase in subscriptions.\n\nProduct Performance\nOur flagship product, ACME Cloud Suite, maintained its market leadership position with over 10,000 enterprise customers. The newly launched ACME Analytics platform contributed $12 million in revenue.\n\nOperating Expenses\nOperating expenses increased by 2% to $210 million, mainly due to investments in R&D and marketing initiatives. Despite this increase, we maintained a healthy operating margin of 33%.\n\nFuture Outlook\nLooking ahead to Q3 2023, we expect continued growth momentum with projected revenue of $325-330 million. Key growth drivers include expansion into Asian markets and the launch of our AI-powered features."
+        "text": "ACME Corporation Q2 2023 Financial Report\n\nExecutive Summary\nACME Corporation experienced strong growth in Q2 2023, driven by increased demand for our cloud services and enterprise solutions.\n\nRevenue Performance\nThe company's revenue grew by 3% over the previous quarter, reaching $314 million. This growth was primarily attributed to our SaaS offerings, which saw a 15% increase in subscriptions.\n\nProduct Performance\nOur flagship product, ACME Cloud Suite, continued to dominate the market with a 42% market share. The newly launched ACME Analytics platform exceeded expectations, contributing $23 million in revenue.\n\nRegional Breakdown\nNorth America remained our strongest market, accounting for 55% of total revenue. European markets showed promising growth at 12% quarter-over-quarter.\n\nFuture Outlook\nWe expect continued growth in Q3 2023, with projected revenue between $325-335 million. Investment in AI capabilities and expansion into Asian markets are key priorities."
       },
       "id": "set-document",
       "name": "Set Document",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.2,
+      "typeVersion": 3,
       "position": [450, 300]
     },
     {
       "parameters": {
-        "model": "gpt-3.5-turbo"
+        "model": "gpt-4",
+        "options": {
+          "temperature": 0.3
+        }
       },
       "id": "openai-chat",
       "name": "OpenAI Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1,
-      "position": [650, 400],
+      "position": [650, 200],
       "credentials": {
         "openAiApi": {
           "id": "1",
@@ -37,13 +40,24 @@
     },
     {
       "parameters": {
-        "textSplitter": "recursiveCharacterTextSplitter",
         "chunkSize": 200,
         "chunkOverlap": 50,
+        "keepSeparator": false
+      },
+      "id": "text-splitter",
+      "name": "Recursive Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "contextPrompt": "Provide a brief context about what aspect of ACME Corporation's Q2 2023 financial report this chunk discusses.",
         "options": {
-          "enableContextualRetrieval": true,
-          "contextPrompt": "<document>\n{{WHOLE_DOCUMENT}}\n</document>\n\nHere is the chunk we want to situate within the whole document:\n<chunk>\n{{CHUNK_CONTENT}}\n</chunk>\n\nPlease give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else.",
-          "batchSize": 5
+          "batchSize": 5,
+          "contextPrefix": "Context: ",
+          "contextSeparator": "\n\n",
+          "metadata": "{\"reportType\": \"financial\", \"company\": \"ACME Corporation\", \"period\": \"Q2 2023\"}"
         }
       },
       "id": "contextual-loader",
@@ -54,30 +68,30 @@
     },
     {
       "parameters": {
-        "model": "text-embedding-004",
         "options": {}
       },
-      "id": "embeddings",
-      "name": "Embeddings Google Gemini",
-      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
-      "typeVersion": 1,
-      "position": [1050, 400],
-      "credentials": {
-        "googlePalmApi": {
-          "id": "2",
-          "name": "Google PaLM"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "mode": "insert"
-      },
-      "id": "vector-store",
+      "id": "in-memory-store",
       "name": "In-Memory Vector Store",
       "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
       "typeVersion": 1,
-      "position": [1250, 300]
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "id": "openai-embeddings",
+      "name": "OpenAI Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1,
+      "position": [1050, 400],
+      "credentials": {
+        "openAiApi": {
+          "id": "1",
+          "name": "OpenAI"
+        }
+      }
     }
   ],
   "connections": {
@@ -114,6 +128,17 @@
         ]
       ]
     },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Contextual Document Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Contextual Document Loader": {
       "ai_document": [
         [
@@ -125,7 +150,7 @@
         ]
       ]
     },
-    "Embeddings Google Gemini": {
+    "OpenAI Embeddings": {
       "ai_embedding": [
         [
           {
@@ -136,5 +161,16 @@
         ]
       ]
     }
-  }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": "contextual-document-loader-example"
+  },
+  "pinData": {},
+  "versionId": "1",
+  "triggerCount": 0,
+  "tags": []
 } 

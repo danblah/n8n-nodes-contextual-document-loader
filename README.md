@@ -6,26 +6,18 @@ This is an n8n community node that provides document loading with **Contextual R
 
 Traditional RAG systems often fail because they split documents into chunks that lack sufficient context. For example, a chunk might say "The company's revenue grew by 3%" without specifying which company or time period.
 
-Contextual Retrieval solves this by using an LLM to generate chunk-specific context that explains each chunk within the broader document. This context is prepended to the chunk before embedding, significantly improving retrieval accuracy.
+Contextual Retrieval solves this by using an LLM to generate chunk-specific context that explains each chunk within the broader document. This context is prepended to the chunk before embedding, dramatically improving retrieval accuracy.
 
-According to Anthropic's research, this technique can:
-- Reduce retrieval failure rates by 35% with contextual embeddings alone
-- Reduce retrieval failure rates by 49% when combined with BM25
-- Reduce retrieval failure rates by 67% when combined with reranking
+According to Anthropic's research, this technique can reduce retrieval failure rates by up to 67%.
 
 ## Features
 
-- **Contextual chunk enhancement** using any connected LLM
-- **Multiple text splitting strategies**:
-  - Character-based splitting
-  - Token-based splitting
-  - Recursive character splitting
-  - Markdown-aware splitting
-- **Customizable context generation prompt**
-- **Batch processing** for efficient context generation
-- **Automatic retry logic** for reliability
-- **Flexible metadata support**
-- **Works seamlessly with vector stores** and other n8n AI nodes
+- 🤖 **Automatic Context Generation**: Uses an LLM to generate contextual descriptions for each chunk
+- 📄 **Flexible Text Splitting**: Works with any n8n text splitter node
+- 🔄 **Batch Processing**: Processes chunks in configurable batches for efficiency
+- 🔁 **Retry Logic**: Automatic retries for failed context generation
+- 📊 **Rich Metadata**: Preserves original chunks and context in metadata
+- 🎯 **Improved RAG Performance**: Significantly better retrieval accuracy
 
 ## Installation
 
@@ -43,185 +35,128 @@ npm install n8n-nodes-contextual-document-loader
 
 ## Usage
 
+This node requires three inputs:
+
+1. **Main Input**: The documents/data you want to process
+2. **Chat Model**: An LLM to generate contextual descriptions (required)
+3. **Text Splitter**: Any n8n text splitter node to split documents into chunks (required)
+
 ### Basic Setup
 
 1. Add the **Contextual Document Loader** node to your workflow
-2. Connect a **Chat Model** node (e.g., OpenAI, Anthropic Claude, etc.) to the model input
-3. Connect your data source to the main input
-4. Connect the output to a **Vector Store** node
+2. Connect your data source to the main input
+3. Connect a **Chat Model** node (e.g., OpenAI, Anthropic, etc.)
+4. Connect a **Text Splitter** node (e.g., Recursive Character Text Splitter)
+5. Connect the output to a vector store or other processing node
 
 ### Example Workflow
 
 ```
-[Data Source] → [Contextual Document Loader] → [Vector Store]
-                            ↑
-                     [Chat Model]
+[Document Source] → [Contextual Document Loader] → [Vector Store]
+                            ↑                ↑
+                    [Chat Model]    [Text Splitter]
 ```
 
-### Configuration Options
+## Configuration
 
-#### Main Settings
+### Context Prompt
 
-- **Text Splitter**: Choose how to split your documents
-  - Recursive Character Text Splitter (recommended)
-  - By Character Count
-  - By Token Count
-  - Markdown
+The prompt used to generate contextual descriptions. The node automatically provides:
+- The complete document in a `<document>` tag
+- The current chunk in a `<chunk>` tag
 
-- **Chunk Size**: Maximum size of each chunk (default: 1000)
-- **Chunk Overlap**: Number of characters to overlap between chunks (default: 200)
+Default prompt:
+```
+Please give a short succinct context to situate this chunk within the whole document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else.
+```
 
-#### Contextual Retrieval Options
+### Options
 
-- **Enable Contextual Retrieval**: Toggle context generation (default: true)
-- **Context Prompt**: Customize the prompt used to generate context
-- **Context Prefix**: Text to add before context (default: "Context: ")
-- **Context Separator**: Separator between context and chunk (default: "\n\n")
 - **Batch Size**: Number of chunks to process in parallel (default: 10)
-- **Max Retries**: Maximum retry attempts for context generation (default: 3)
+- **Context Prefix**: Text to prepend before the context (default: "Context: ")
+- **Context Separator**: Separator between context and chunk (default: "\n\n")
+- **Max Retries**: Maximum retry attempts for failed context generation (default: 3)
+- **Metadata**: Additional metadata to add to all documents
 
-### Input Data Format
+## How It Works
 
-The node accepts various input formats:
+1. **Document Input**: The node receives documents from the main input
+2. **Text Splitting**: Documents are split into chunks using the connected text splitter
+3. **Context Generation**: For each chunk, the LLM generates a contextual description
+4. **Content Assembly**: Context is prepended to each chunk with the specified prefix and separator
+5. **Output**: Enhanced documents with contextual information are output for further processing
 
-```json
-{
-  "text": "Your document content here",
-  "source": "optional-source-identifier",
-  "fileName": "optional-filename.txt"
-}
+### Example Output
+
+Original chunk:
+```
+The company's revenue grew by 3% over the previous quarter.
 ```
 
-Or:
-```json
-{
-  "content": "Your document content here"
-}
+Enhanced chunk with context:
+```
+Context: ACME Corporation Q2 2023 financial report discussing quarterly revenue performance.
+
+The company's revenue grew by 3% over the previous quarter.
 ```
 
-Or:
-```json
-{
-  "document": "Your document content here"
-}
-```
+## Metadata
 
-### Output Format
+Each output document includes metadata:
+- `chunkIndex`: The index of the chunk in the original document
+- `originalChunk`: The original chunk text without context
+- `hasContext`: Boolean indicating if context was successfully generated
+- `context`: The generated context (if available)
+- Any metadata from the input document
 
-The node outputs documents in the standard n8n AI document format:
+## Best Practices
 
-```json
-{
-  "documents": [
-    {
-      "pageContent": "Context: This chunk discusses Q2 2023 revenue for ACME Corp...\n\nThe company's revenue grew by 3%...",
-      "metadata": {
-        "chunkIndex": 0,
-        "originalChunk": "The company's revenue grew by 3%...",
-        "hasContext": true,
-        "context": "This chunk discusses Q2 2023 revenue for ACME Corp...",
-        "source": "acme-q2-2023.pdf"
-      }
-    }
-  ],
-  "documentCount": 42
-}
-```
-
-## Customizing the Context Prompt
-
-The default prompt is based on Anthropic's recommended approach:
-
-```
-<document>
-{{WHOLE_DOCUMENT}}
-</document>
-
-Here is the chunk we want to situate within the whole document:
-<chunk>
-{{CHUNK_CONTENT}}
-</chunk>
-
-Please give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else.
-```
-
-You can customize this prompt for your specific use case. The placeholders `{{WHOLE_DOCUMENT}}` and `{{CHUNK_CONTENT}}` will be replaced with actual content.
-
-### Domain-Specific Examples
-
-**For Technical Documentation:**
-```
-Document: {{WHOLE_DOCUMENT}}
-
-Chunk: {{CHUNK_CONTENT}}
-
-Provide a brief technical context explaining what system, component, or feature this chunk relates to. Include any relevant version numbers, dependencies, or technical terms that would help retrieve this information.
-```
-
-**For Legal Documents:**
-```
-Full document: {{WHOLE_DOCUMENT}}
-
-Excerpt: {{CHUNK_CONTENT}}
-
-Provide a concise legal context identifying the parties involved, the type of agreement or clause, and the section of the document this excerpt belongs to.
-```
+1. **Choose the Right Model**: Use a capable model for context generation (GPT-4, Claude, etc.)
+2. **Optimize Batch Size**: Adjust based on your rate limits and performance needs
+3. **Custom Prompts**: Tailor the context prompt to your specific use case
+4. **Monitor Costs**: Context generation adds LLM calls - monitor your usage
 
 ## Use Cases
 
-- **Knowledge Base Search**: Improve accuracy when searching through documentation
-- **Customer Support**: Better retrieve relevant support articles and FAQs
-- **Legal Document Analysis**: Find specific clauses and provisions more accurately
-- **Research Papers**: Improve citation and reference retrieval
-- **Code Documentation**: Better search through API docs and code comments
-
-## Performance Considerations
-
-1. **LLM Costs**: Generating context for each chunk requires LLM API calls. Consider:
-   - Using a cost-effective model for context generation
-   - Adjusting batch size based on rate limits
-   - Caching results for frequently processed documents
-
-2. **Processing Time**: Context generation adds processing time. To optimize:
-   - Increase batch size for parallel processing
-   - Use a faster LLM for context generation
-   - Consider disabling for small documents that fit in a single chunk
-
-3. **Chunk Size**: Larger chunks provide more context but may dilute search relevance. Experiment with different sizes for your use case.
-
-## Comparison with Standard Document Loader
-
-| Feature | Standard Loader | Contextual Loader |
-|---------|----------------|-------------------|
-| Basic text splitting | ✅ | ✅ |
-| Multiple splitter types | ✅ | ✅ |
-| Metadata support | ✅ | ✅ |
-| Context generation | ❌ | ✅ |
-| LLM integration | ❌ | ✅ |
-| Improved retrieval accuracy | ❌ | ✅ |
-| Customizable prompts | ❌ | ✅ |
+- 📚 **Document Q&A**: Improve accuracy when answering questions about long documents
+- 🔍 **Semantic Search**: Better search results in knowledge bases
+- 📊 **Report Analysis**: Enhanced retrieval from financial reports, research papers
+- 📖 **Book/Article Processing**: Maintain context across chapters and sections
+- 🏢 **Enterprise Knowledge Management**: Better retrieval from company documents
 
 ## Troubleshooting
 
-### "No language model connected" Error
-- Ensure you've connected a Chat Model node to the model input
-- Check that your LLM credentials are properly configured
+### No Context Generated
+- Check your LLM connection and API limits
+- Verify the model supports the required context length
+- Check the error logs for specific failure reasons
 
-### Context Generation Failures
-- Check your LLM API limits and quotas
-- Reduce batch size if hitting rate limits
-- Increase max retries for unreliable connections
-- Check the console for specific error messages
+### Performance Issues
+- Reduce batch size for better rate limit handling
+- Use a faster model for context generation
+- Consider caching for repeated documents
 
-### High Costs
-- Use a more cost-effective model for context generation
-- Increase chunk size to reduce the number of chunks
-- Consider disabling contextual retrieval for less critical documents
+## Example Workflow JSON
 
-### Slow Processing
-- Increase batch size for parallel processing
-- Use a faster LLM model
-- Consider processing documents asynchronously
+```json
+{
+  "nodes": [
+    {
+      "name": "Contextual Document Loader",
+      "type": "n8n-nodes-contextual-document-loader.contextualDocumentLoader",
+      "position": [500, 300],
+      "parameters": {
+        "contextPrompt": "Provide a brief context for this chunk within the document.",
+        "options": {
+          "batchSize": 5,
+          "contextPrefix": "Context: ",
+          "contextSeparator": "\n\n"
+        }
+      }
+    }
+  ]
+}
+```
 
 ## Contributing
 
@@ -233,7 +168,7 @@ MIT
 
 ## Credits
 
-This node implements the Contextual Retrieval technique described by [Anthropic](https://www.anthropic.com/news/contextual-retrieval).
+This node implements the Contextual Retrieval technique described in [Anthropic's blog post](https://www.anthropic.com/news/contextual-retrieval).
 
 ## Support
 
