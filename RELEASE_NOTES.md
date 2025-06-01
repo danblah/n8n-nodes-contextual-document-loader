@@ -1,5 +1,22 @@
 # Release Notes
 
+## v0.2.2 - Fix Data Flow
+
+### Bug Fixes
+
+- Fixed "no output" issue by removing main input requirement
+- The node now properly receives data from the parent vector store node
+- Adjusted parameter indexing to work correctly as a sub-node
+
+### How It Works
+
+The Contextual Document Loader is a sub-node that:
+1. Receives data from the vector store's main input
+2. Processes it with contextual retrieval
+3. Passes the enhanced documents to the vector store
+
+No direct main input connection is needed to the Contextual Document Loader.
+
 ## v0.2.1 - Bug Fix
 
 ### Bug Fixes

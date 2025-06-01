@@ -39,7 +39,6 @@ export class ContextualDocumentLoader implements INodeType {
 			},
 		},
 		inputs: [
-			NodeConnectionType.Main,
 			{
 				displayName: 'Chat Model',
 				maxConnections: 1,
@@ -118,13 +117,14 @@ export class ContextualDocumentLoader implements INodeType {
 	};
 
 	async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
-		const items = this.getInputData();
+		// Get the input data from the parent node (vector store)
+		const parentInputData = this.getInputData();
 		const documents: Document[] = [];
 
 		// Get the language model (required)
 		const model = (await this.getInputConnectionData(
 			NodeConnectionType.AiLanguageModel,
-			itemIndex,
+			0,
 		)) as BaseLanguageModel;
 
 		if (!model) {
@@ -137,7 +137,7 @@ export class ContextualDocumentLoader implements INodeType {
 		// Get the text splitter (required)
 		const textSplitter = (await this.getInputConnectionData(
 			NodeConnectionType.AiTextSplitter,
-			itemIndex,
+			0,
 		)) as TextSplitter | undefined;
 
 		if (!textSplitter) {
@@ -147,11 +147,11 @@ export class ContextualDocumentLoader implements INodeType {
 			);
 		}
 
-		// Get parameters
-		const contextPrompt = this.getNodeParameter('contextPrompt', itemIndex) as string;
+		// Get parameters - use itemIndex 0 since this is a sub-node
+		const contextPrompt = this.getNodeParameter('contextPrompt', 0) as string;
 		
 		// Get options
-		const options = this.getNodeParameter('options', itemIndex, {}) as {
+		const options = this.getNodeParameter('options', 0, {}) as {
 			contextPrefix?: string;
 			contextSeparator?: string;
 			metadata?: string;
@@ -177,9 +177,9 @@ export class ContextualDocumentLoader implements INodeType {
 			}
 		}
 
-		// Process each input item
-		for (let i = 0; i < items.length; i++) {
-			const item = items[i];
+		// Process each input item from the parent node
+		for (let i = 0; i < parentInputData.length; i++) {
+			const item = parentInputData[i];
 
 			// Get text content from the item
 			let text = '';
