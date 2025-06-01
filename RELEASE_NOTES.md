@@ -1,5 +1,12 @@
 # Release Notes
 
+## v0.2.9 - Align logWrapper with n8n core
+
+### Bug Fixes
+
+- Made `logWrapper` a true pass-through that simply returns the processor object, matching n8n's internal implementation.
+- Ensures compatibility with vector-store nodes and prevents `processedDocuments.map is not a function` error.
+
 ## v0.2.8 - Fix logWrapper Implementation
 
 ### Bug Fixes
