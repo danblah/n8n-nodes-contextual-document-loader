@@ -1,5 +1,23 @@
 # Release Notes
 
+## v0.2.3 - Fix Document Processing
+
+### Bug Fixes
+
+- Fixed "no output" issue by implementing proper document processor pattern
+- The node now returns a processing function that vector stores can use
+- Changed from returning documents directly to returning a document processor
+- This matches how n8n's Default Data Loader and other document loaders work
+
+### Technical Details
+
+The supplyData method now returns a function that:
+1. Takes documents as input (from the vector store)
+2. Processes them with contextual retrieval
+3. Returns the enhanced documents
+
+This is the standard pattern that vector stores expect from document loaders.
+
 ## v0.2.2 - Fix Data Flow
 
 ### Bug Fixes
