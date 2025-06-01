@@ -1,5 +1,24 @@
 # Release Notes
 
+## v0.2.8 - Fix logWrapper Implementation
+
+### Bug Fixes
+
+- Fixed "processedDocuments.map is not a function" error
+- Implemented proper logWrapper that returns a function expected by n8n's vector stores
+- The logWrapper now correctly wraps the processor and provides the interface that vector stores expect
+- Fixed the data flow between the document loader and vector stores
+
+### Technical Details
+
+The logWrapper now:
+1. Returns a function that will be called by the vector store
+2. Gets input data from the workflow context using `context.getInputData()`
+3. Passes the data to the processor's `processAll` method
+4. Returns the processed documents to the vector store
+
+This implementation matches the pattern used by n8n's Default Data Loader and ensures compatibility with all vector stores.
+
 ## v0.2.7 - Processor Class Implementation
 
 ### Bug Fixes
