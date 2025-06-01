@@ -104,11 +104,28 @@ export class ContextualDocumentLoader implements INodeType {
 				default: {},
 				options: [
 					{
-						displayName: 'Enable Contextual Retrieval',
-						name: 'enableContextualRetrieval',
-						type: 'boolean',
-						default: true,
-						description: 'Whether to add contextual descriptions to chunks',
+						displayName: 'Batch Size',
+						name: 'batchSize',
+						type: 'number',
+						default: 10,
+						description: 'Number of chunks to process in parallel when generating context',
+						displayOptions: {
+							show: {
+								enableContextualRetrieval: [true],
+							},
+						},
+					},
+					{
+						displayName: 'Context Prefix',
+						name: 'contextPrefix',
+						type: 'string',
+						default: 'Context: ',
+						description: 'Prefix to add before the contextual description',
+						displayOptions: {
+							show: {
+								enableContextualRetrieval: [true],
+							},
+						},
 					},
 					{
 						displayName: 'Context Prompt',
@@ -135,11 +152,11 @@ Please give a short succinct context to situate this chunk within the overall do
 						},
 					},
 					{
-						displayName: 'Context Prefix',
-						name: 'contextPrefix',
+						displayName: 'Context Separator',
+						name: 'contextSeparator',
 						type: 'string',
-						default: 'Context: ',
-						description: 'Prefix to add before the contextual description',
+						default: '\n\n',
+						description: 'Separator between context and chunk content',
 						displayOptions: {
 							show: {
 								enableContextualRetrieval: [true],
@@ -147,11 +164,47 @@ Please give a short succinct context to situate this chunk within the overall do
 						},
 					},
 					{
-						displayName: 'Context Separator',
-						name: 'contextSeparator',
-						type: 'string',
-						default: '\n\n',
-						description: 'Separator between context and chunk content',
+						displayName: 'Enable Contextual Retrieval',
+						name: 'enableContextualRetrieval',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to add contextual descriptions to chunks',
+					},
+					{
+						displayName: 'Encoding Model',
+						name: 'encodingModel',
+						type: 'options',
+						options: [
+							{ name: 'GPT-2', value: 'gpt2' },
+							{ name: 'GPT-3', value: 'r50k_base' },
+							{ name: 'GPT-3.5/GPT-4', value: 'cl100k_base' },
+						],
+						default: 'cl100k_base',
+						description: 'The encoding model to use for token counting',
+						displayOptions: {
+							show: {
+								'/textSplitter': ['tokenTextSplitter'],
+							},
+						},
+					},
+					{
+						displayName: 'Keep Separator',
+						name: 'keepSeparator',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to keep the separator in the chunks',
+						displayOptions: {
+							show: {
+								'/textSplitter': ['recursiveCharacterTextSplitter'],
+							},
+						},
+					},
+					{
+						displayName: 'Max Retries',
+						name: 'maxRetries',
+						type: 'number',
+						default: 3,
+						description: 'Maximum number of retries for context generation',
 						displayOptions: {
 							show: {
 								enableContextualRetrieval: [true],
@@ -177,59 +230,6 @@ Please give a short succinct context to situate this chunk within the overall do
 						displayOptions: {
 							show: {
 								'/textSplitter': ['recursiveCharacterTextSplitter'],
-							},
-						},
-					},
-					{
-						displayName: 'Keep Separator',
-						name: 'keepSeparator',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to keep the separator in the chunks',
-						displayOptions: {
-							show: {
-								'/textSplitter': ['recursiveCharacterTextSplitter'],
-							},
-						},
-					},
-					{
-						displayName: 'Encoding Model',
-						name: 'encodingModel',
-						type: 'options',
-						options: [
-							{ name: 'GPT-2', value: 'gpt2' },
-							{ name: 'GPT-3', value: 'r50k_base' },
-							{ name: 'GPT-3.5/GPT-4', value: 'cl100k_base' },
-						],
-						default: 'cl100k_base',
-						description: 'The encoding model to use for token counting',
-						displayOptions: {
-							show: {
-								'/textSplitter': ['tokenTextSplitter'],
-							},
-						},
-					},
-					{
-						displayName: 'Batch Size',
-						name: 'batchSize',
-						type: 'number',
-						default: 10,
-						description: 'Number of chunks to process in parallel when generating context',
-						displayOptions: {
-							show: {
-								enableContextualRetrieval: [true],
-							},
-						},
-					},
-					{
-						displayName: 'Max Retries',
-						name: 'maxRetries',
-						type: 'number',
-						default: 3,
-						description: 'Maximum number of retries for context generation',
-						displayOptions: {
-							show: {
-								enableContextualRetrieval: [true],
 							},
 						},
 					},
