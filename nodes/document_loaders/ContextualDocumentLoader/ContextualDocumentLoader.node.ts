@@ -14,121 +14,6 @@ import { TextSplitter } from '@langchain/textsplitters';
 import { BaseLanguageModel } from '@langchain/core/language_models/base';
 import { getConnectionHintNoticeField } from '../../utils/sharedFields';
 
-// Custom loader class that processes documents with contextual retrieval
-class ContextualDocumentProcessor {
-	constructor(
-		private model: BaseLanguageModel,
-		private textSplitter: TextSplitter,
-		private contextPrompt: string,
-		private options: {
-			contextPrefix: string;
-			contextSeparator: string;
-			batchSize: number;
-			maxRetries: number;
-			metadata: Record<string, any>;
-		},
-	) {}
-
-	async processItem(item: INodeExecutionData): Promise<Document[]> {
-		// Get text content from the item
-		let text = '';
-		let itemMetadata = { ...this.options.metadata };
-
-		if (item.json.text) {
-			text = item.json.text as string;
-		} else if (item.json.content) {
-			text = item.json.content as string;
-		} else if (item.json.document) {
-			text = item.json.document as string;
-		} else if (item.json.data) {
-			text = item.json.data as string;
-		} else {
-			// Try to convert the entire JSON to string
-			text = JSON.stringify(item.json);
-		}
-
-		// Add source metadata if available
-		if (item.json.source) {
-			itemMetadata.source = item.json.source;
-		}
-		if (item.json.fileName) {
-			itemMetadata.fileName = item.json.fileName;
-		}
-		if (item.json.fileType) {
-			itemMetadata.fileType = item.json.fileType;
-		}
-
-		// Split the text into chunks
-		const chunks = await this.textSplitter.splitText(text);
-		const documents: Document[] = [];
-
-		// Process chunks in batches with contextual retrieval
-		for (let j = 0; j < chunks.length; j += this.options.batchSize) {
-			const batch = chunks.slice(j, j + this.options.batchSize);
-			const contextualChunks = await Promise.all(
-				batch.map(async (chunk, batchIndex) => {
-					const chunkIndex = j + batchIndex;
-					let retries = 0;
-					let context = '';
-
-					while (retries < this.options.maxRetries) {
-						try {
-							// Create the full prompt with document and chunk
-							const fullPrompt = `<document>
-${text}
-</document>
-
-Here is the chunk we want to situate within the whole document:
-<chunk>
-${chunk}
-</chunk>
-
-${this.contextPrompt}`;
-
-							const response = await this.model.invoke(fullPrompt);
-							context = typeof response === 'string' 
-								? response 
-								: response.content?.toString() || '';
-							
-							break;
-						} catch (error) {
-							retries++;
-							if (retries >= this.options.maxRetries) {
-								console.error(`Failed to generate context for chunk ${chunkIndex}:`, error);
-								// Fall back to chunk without context
-								context = '';
-							} else {
-								// Wait before retrying
-								await new Promise(resolve => setTimeout(resolve, 1000 * retries));
-							}
-						}
-					}
-
-					// Combine context with chunk content
-					const contextualContent = context
-						? `${this.options.contextPrefix}${context}${this.options.contextSeparator}${chunk}`
-						: chunk;
-
-					return new Document({
-						pageContent: contextualContent,
-						metadata: {
-							...itemMetadata,
-							chunkIndex,
-							originalChunk: chunk,
-							hasContext: !!context,
-							context: context || undefined,
-						},
-					});
-				}),
-			);
-
-			documents.push(...contextualChunks);
-		}
-
-		return documents;
-	}
-}
-
 export class ContextualDocumentLoader implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Contextual Document Loader',
@@ -259,10 +144,10 @@ export class ContextualDocumentLoader implements INodeType {
 		}
 
 		// Get parameters
-		const contextPrompt = this.getNodeParameter('contextPrompt', 0) as string;
+		const contextPrompt = this.getNodeParameter('contextPrompt', itemIndex) as string;
 		
 		// Get options
-		const options = this.getNodeParameter('options', 0, {}) as {
+		const options = this.getNodeParameter('options', itemIndex, {}) as {
 			contextPrefix?: string;
 			contextSeparator?: string;
 			metadata?: string;
@@ -288,25 +173,112 @@ export class ContextualDocumentLoader implements INodeType {
 			}
 		}
 
-		// Create the document processor
-		const processor = new ContextualDocumentProcessor(
-			model,
-			textSplitter,
-			contextPrompt,
-			{
-				contextPrefix,
-				contextSeparator,
-				batchSize,
-				maxRetries,
-				metadata: additionalMetadata,
-			},
-		);
+		// Get all input items
+		const items = this.getInputData();
+		const documents: Document[] = [];
 
-		// Return a loader object that vector stores expect
+		// Process each input item
+		for (let i = 0; i < items.length; i++) {
+			const item = items[i];
+			
+			// Get text content from the item
+			let text = '';
+			let itemMetadata = { ...additionalMetadata };
+
+			if (item.json.text) {
+				text = item.json.text as string;
+			} else if (item.json.content) {
+				text = item.json.content as string;
+			} else if (item.json.document) {
+				text = item.json.document as string;
+			} else if (item.json.data) {
+				text = item.json.data as string;
+			} else {
+				// Try to convert the entire JSON to string
+				text = JSON.stringify(item.json);
+			}
+
+			// Add source metadata if available
+			if (item.json.source) {
+				itemMetadata.source = item.json.source;
+			}
+			if (item.json.fileName) {
+				itemMetadata.fileName = item.json.fileName;
+			}
+			if (item.json.fileType) {
+				itemMetadata.fileType = item.json.fileType;
+			}
+
+			// Split the text into chunks
+			const chunks = await textSplitter.splitText(text);
+
+			// Process chunks in batches with contextual retrieval
+			for (let j = 0; j < chunks.length; j += batchSize) {
+				const batch = chunks.slice(j, j + batchSize);
+				const contextualChunks = await Promise.all(
+					batch.map(async (chunk, batchIndex) => {
+						const chunkIndex = j + batchIndex;
+						let retries = 0;
+						let context = '';
+
+						while (retries < maxRetries) {
+							try {
+								// Create the full prompt with document and chunk
+								const fullPrompt = `<document>
+${text}
+</document>
+
+Here is the chunk we want to situate within the whole document:
+<chunk>
+${chunk}
+</chunk>
+
+${contextPrompt}`;
+
+								const response = await model.invoke(fullPrompt);
+								context = typeof response === 'string' 
+									? response 
+									: response.content?.toString() || '';
+								
+								break;
+							} catch (error) {
+								retries++;
+								if (retries >= maxRetries) {
+									console.error(`Failed to generate context for chunk ${chunkIndex}:`, error);
+									// Fall back to chunk without context
+									context = '';
+								} else {
+									// Wait before retrying
+									await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+								}
+							}
+						}
+
+						// Combine context with chunk content
+						const contextualContent = context
+							? `${contextPrefix}${context}${contextSeparator}${chunk}`
+							: chunk;
+
+						return new Document({
+							pageContent: contextualContent,
+							metadata: {
+								...itemMetadata,
+								chunkIndex,
+								originalChunk: chunk,
+								hasContext: !!context,
+								context: context || undefined,
+							},
+						});
+					}),
+				);
+
+				documents.push(...contextualChunks);
+			}
+		}
+
+		// Return the documents directly
 		return {
-			response: {
-				processItem: processor.processItem.bind(processor),
-			},
+			response: documents,
 		};
 	}
 

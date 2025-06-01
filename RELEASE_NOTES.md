@@ -1,5 +1,21 @@
 # Release Notes
 
+## v0.2.5 - Direct Document Return
+
+### Bug Fixes
+
+- Fixed "processedDocuments.map is not a function" error
+- Changed implementation to return documents directly instead of a processor object
+- The node now processes all input items and returns an array of Document objects
+- This matches how n8n's vector stores expect document loaders to work
+
+### Technical Details
+
+The supplyData method now:
+1. Gets all input items using `this.getInputData()`
+2. Processes each item to extract text and generate contextual chunks
+3. Returns documents directly as `{ response: documents }`
+
 ## v0.2.4 - Fix Document Loader Pattern
 
 ### Bug Fixes
