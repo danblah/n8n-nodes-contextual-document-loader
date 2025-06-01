@@ -5,6 +5,8 @@ import {
 	INodeTypeDescription,
 	NodeConnectionType,
 	NodeOperationError,
+	ISupplyDataFunctions,
+	SupplyData,
 } from 'n8n-workflow';
 
 import { Document } from '@langchain/core/documents';
@@ -62,7 +64,7 @@ export class ContextualDocumentLoader implements INodeType {
 				typeOptions: {
 					rows: 10,
 				},
-				default: `Please give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else.`,
+				default: `Please give a short succinct context to situate this chunk within the whole document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else.`,
 				description: 'Prompt template for generating contextual descriptions. The whole document and chunk will be automatically provided to the model.',
 			},
 			{
@@ -115,14 +117,14 @@ export class ContextualDocumentLoader implements INodeType {
 		],
 	};
 
-	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
+	async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
 		const items = this.getInputData();
 		const documents: Document[] = [];
 
 		// Get the language model (required)
 		const model = (await this.getInputConnectionData(
 			NodeConnectionType.AiLanguageModel,
-			0,
+			itemIndex,
 		)) as BaseLanguageModel;
 
 		if (!model) {
@@ -135,7 +137,7 @@ export class ContextualDocumentLoader implements INodeType {
 		// Get the text splitter (required)
 		const textSplitter = (await this.getInputConnectionData(
 			NodeConnectionType.AiTextSplitter,
-			0,
+			itemIndex,
 		)) as TextSplitter | undefined;
 
 		if (!textSplitter) {
@@ -146,10 +148,10 @@ export class ContextualDocumentLoader implements INodeType {
 		}
 
 		// Get parameters
-		const contextPrompt = this.getNodeParameter('contextPrompt', 0) as string;
+		const contextPrompt = this.getNodeParameter('contextPrompt', itemIndex) as string;
 		
 		// Get options
-		const options = this.getNodeParameter('options', 0, {}) as {
+		const options = this.getNodeParameter('options', itemIndex, {}) as {
 			contextPrefix?: string;
 			contextSeparator?: string;
 			metadata?: string;
@@ -176,8 +178,8 @@ export class ContextualDocumentLoader implements INodeType {
 		}
 
 		// Process each input item
-		for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-			const item = items[itemIndex];
+		for (let i = 0; i < items.length; i++) {
+			const item = items[i];
 
 			// Get text content from the item
 			let text = '';
@@ -211,11 +213,11 @@ export class ContextualDocumentLoader implements INodeType {
 			const chunks = await textSplitter.splitText(text);
 
 			// Process chunks in batches with contextual retrieval
-			for (let i = 0; i < chunks.length; i += batchSize) {
-				const batch = chunks.slice(i, i + batchSize);
+			for (let j = 0; j < chunks.length; j += batchSize) {
+				const batch = chunks.slice(j, j + batchSize);
 				const contextualChunks = await Promise.all(
 					batch.map(async (chunk, batchIndex) => {
-						const chunkIndex = i + batchIndex;
+						const chunkIndex = j + batchIndex;
 						let retries = 0;
 						let context = '';
 
@@ -274,15 +276,16 @@ ${contextPrompt}`;
 			}
 		}
 
-		return [
-			[
-				{
-					json: {
-						documents,
-						documentCount: documents.length,
-					},
-				},
-			],
-		];
+		return { response: documents };
+	}
+
+	// Keep the execute method for backward compatibility
+	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
+		// This method is not used when the node is used as a sub-node
+		// but we keep it for potential future use or testing
+		throw new NodeOperationError(
+			this.getNode(),
+			'This node should be used as a sub-node connected to other AI nodes, not executed directly.',
+		);
 	}
 }
