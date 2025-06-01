@@ -1,5 +1,13 @@
 # Release Notes
 
+## v0.2.1 - Bug Fix
+
+### Bug Fixes
+
+- Fixed "Node does not have a `supplyData` method defined" error
+- The node now properly implements the `supplyData` method required for LangChain sub-nodes
+- Changed from `execute` to `supplyData` for proper integration with vector stores and other AI nodes
+
 ## v0.2.0 - Major Refactor
 
 ### Breaking Changes
