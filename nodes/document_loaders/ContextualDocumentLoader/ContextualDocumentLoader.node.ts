@@ -173,58 +173,68 @@ export class ContextualDocumentLoader implements INodeType {
 			}
 		}
 
-		// Get all input items
-		const items = this.getInputData();
-		const documents: Document[] = [];
+		// Create a processor object that follows n8n's pattern
+		const processor = {
+			processAll: async (items?: INodeExecutionData[]): Promise<Document[]> => {
+				const documents: Document[] = [];
 
-		// Process each input item
-		for (let i = 0; i < items.length; i++) {
-			const item = items[i];
-			
-			// Get text content from the item
-			let text = '';
-			let itemMetadata = { ...additionalMetadata };
+				if (!items) return [];
 
-			if (item.json.text) {
-				text = item.json.text as string;
-			} else if (item.json.content) {
-				text = item.json.content as string;
-			} else if (item.json.document) {
-				text = item.json.document as string;
-			} else if (item.json.data) {
-				text = item.json.data as string;
-			} else {
-				// Try to convert the entire JSON to string
-				text = JSON.stringify(item.json);
-			}
+				for (let i = 0; i < items.length; i++) {
+					const processedDocs = await processor.processItem(items[i], i);
+					documents.push(...processedDocs);
+				}
 
-			// Add source metadata if available
-			if (item.json.source) {
-				itemMetadata.source = item.json.source;
-			}
-			if (item.json.fileName) {
-				itemMetadata.fileName = item.json.fileName;
-			}
-			if (item.json.fileType) {
-				itemMetadata.fileType = item.json.fileType;
-			}
+				return documents;
+			},
 
-			// Split the text into chunks
-			const chunks = await textSplitter.splitText(text);
+			processItem: async (item: INodeExecutionData, itemIndex: number): Promise<Document[]> => {
+				const documents: Document[] = [];
+				
+				// Get text content from the item
+				let text = '';
+				let itemMetadata = { ...additionalMetadata };
 
-			// Process chunks in batches with contextual retrieval
-			for (let j = 0; j < chunks.length; j += batchSize) {
-				const batch = chunks.slice(j, j + batchSize);
-				const contextualChunks = await Promise.all(
-					batch.map(async (chunk, batchIndex) => {
-						const chunkIndex = j + batchIndex;
-						let retries = 0;
-						let context = '';
+				if (item.json.text) {
+					text = item.json.text as string;
+				} else if (item.json.content) {
+					text = item.json.content as string;
+				} else if (item.json.document) {
+					text = item.json.document as string;
+				} else if (item.json.data) {
+					text = item.json.data as string;
+				} else {
+					// Try to convert the entire JSON to string
+					text = JSON.stringify(item.json);
+				}
 
-						while (retries < maxRetries) {
-							try {
-								// Create the full prompt with document and chunk
-								const fullPrompt = `<document>
+				// Add source metadata if available
+				if (item.json.source) {
+					itemMetadata.source = item.json.source;
+				}
+				if (item.json.fileName) {
+					itemMetadata.fileName = item.json.fileName;
+				}
+				if (item.json.fileType) {
+					itemMetadata.fileType = item.json.fileType;
+				}
+
+				// Split the text into chunks
+				const chunks = await textSplitter.splitText(text);
+
+				// Process chunks in batches with contextual retrieval
+				for (let j = 0; j < chunks.length; j += batchSize) {
+					const batch = chunks.slice(j, j + batchSize);
+					const contextualChunks = await Promise.all(
+						batch.map(async (chunk, batchIndex) => {
+							const chunkIndex = j + batchIndex;
+							let retries = 0;
+							let context = '';
+
+							while (retries < maxRetries) {
+								try {
+									// Create the full prompt with document and chunk
+									const fullPrompt = `<document>
 ${text}
 </document>
 
@@ -235,50 +245,53 @@ ${chunk}
 
 ${contextPrompt}`;
 
-								const response = await model.invoke(fullPrompt);
-								context = typeof response === 'string' 
-									? response 
-									: response.content?.toString() || '';
-								
-								break;
-							} catch (error) {
-								retries++;
-								if (retries >= maxRetries) {
-									console.error(`Failed to generate context for chunk ${chunkIndex}:`, error);
-									// Fall back to chunk without context
-									context = '';
-								} else {
-									// Wait before retrying
-									await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+									const response = await model.invoke(fullPrompt);
+									context = typeof response === 'string' 
+										? response 
+										: response.content?.toString() || '';
+									
+									break;
+								} catch (error) {
+									retries++;
+									if (retries >= maxRetries) {
+										console.error(`Failed to generate context for chunk ${chunkIndex}:`, error);
+										// Fall back to chunk without context
+										context = '';
+									} else {
+										// Wait before retrying
+										await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+									}
 								}
 							}
-						}
 
-						// Combine context with chunk content
-						const contextualContent = context
-							? `${contextPrefix}${context}${contextSeparator}${chunk}`
-							: chunk;
+							// Combine context with chunk content
+							const contextualContent = context
+								? `${contextPrefix}${context}${contextSeparator}${chunk}`
+								: chunk;
 
-						return new Document({
-							pageContent: contextualContent,
-							metadata: {
-								...itemMetadata,
-								chunkIndex,
-								originalChunk: chunk,
-								hasContext: !!context,
-								context: context || undefined,
-							},
-						});
-					}),
-				);
+							return new Document({
+								pageContent: contextualContent,
+								metadata: {
+									...itemMetadata,
+									chunkIndex,
+									originalChunk: chunk,
+									hasContext: !!context,
+									context: context || undefined,
+								},
+							});
+						}),
+					);
 
-				documents.push(...contextualChunks);
+					documents.push(...contextualChunks);
+				}
+
+				return documents;
 			}
-		}
+		};
 
-		// Return the documents directly
+		// Return the processor
 		return {
-			response: documents,
+			response: processor,
 		};
 	}
 

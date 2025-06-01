@@ -1,5 +1,24 @@
 # Release Notes
 
+## v0.2.6 - Processor Pattern Implementation
+
+### Bug Fixes
+
+- Fixed "no output" issue by implementing the correct processor pattern
+- Changed from returning documents directly to returning a processor object with `processAll` and `processItem` methods
+- This matches the pattern used by n8n's Default Data Loader and other document loaders
+- The vector store now correctly calls the processor methods with input data
+
+### Technical Details
+
+The supplyData method now returns a processor object that:
+1. Has `processAll` method that processes all input items
+2. Has `processItem` method that processes individual items
+3. Extracts text from various fields (text, content, document, data)
+4. Generates contextual chunks using the connected LLM and text splitter
+
+This implementation follows the exact pattern from n8n's Default Data Loader source code.
+
 ## v0.2.5 - Direct Document Return
 
 ### Bug Fixes
