@@ -1,5 +1,20 @@
 # Release Notes
 
+## v0.2.4 - Fix Document Loader Pattern
+
+### Bug Fixes
+
+- Fixed "processedDocuments.map is not a function" error
+- Implemented proper document loader pattern with processItem method
+- The node now returns a loader object with processItem function that vector stores expect
+- Changed from returning a document processing function to returning a loader object
+
+### Technical Details
+
+The supplyData method now returns an object with:
+- `response.processItem`: A method that takes an item and returns Document[]
+- This matches the pattern that n8n's vector stores expect from document loaders
+
 ## v0.2.3 - Fix Document Processing
 
 ### Bug Fixes
